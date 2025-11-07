@@ -6,7 +6,7 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 
 const Dashboard = () => {
-  const { user } = useAuth();
+  const { profile } = useAuth();
 
   // Mock data for dashboard widgets
   const stats = {

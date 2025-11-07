@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 const AuthContext = createContext();
 
@@ -12,9 +13,11 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [session, setSession] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [userRoles, setUserRoles] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Mock user roles
   const USER_ROLES = {
     ADMIN: 'admin',
     USER: 'user',
@@ -22,47 +25,82 @@ export const AuthProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    // Check for existing auth token/session
-    const token = localStorage.getItem('docvault_token');
-    const userData = localStorage.getItem('docvault_user');
-    
-    if (token && userData) {
-      try {
-        setUser(JSON.parse(userData));
-      } catch (error) {
-        console.error('Error parsing user data:', error);
-        localStorage.removeItem('docvault_token');
-        localStorage.removeItem('docvault_user');
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          // Fetch user profile and roles
+          setTimeout(() => {
+            fetchUserData(session.user.id);
+          }, 0);
+        } else {
+          setProfile(null);
+          setUserRoles([]);
+        }
       }
-    }
-    setIsLoading(false);
+    );
+
+    // Check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        fetchUserData(session.user.id);
+      } else {
+        setIsLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
+
+  const fetchUserData = async (userId) => {
+    try {
+      // Fetch profile
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (profileError) throw profileError;
+      setProfile(profileData);
+
+      // Fetch user roles
+      const { data: rolesData, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId);
+
+      if (rolesError) throw rolesError;
+      setUserRoles(rolesData.map(r => r.role));
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const login = async (email, password) => {
     setIsLoading(true);
     try {
-      // Mock API call - replace with actual API
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Mock user data based on email
-      let mockUser = {
-        id: 1,
-        email: email,
-        name: email === 'admin@docvault.com' ? 'Admin User' : 'John Doe',
-        role: email === 'admin@docvault.com' ? USER_ROLES.ADMIN : USER_ROLES.USER,
-        avatar: null,
-        createdAt: new Date().toISOString()
-      };
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
 
-      const token = 'mock_jwt_token_' + Date.now();
+      if (error) throw error;
       
-      localStorage.setItem('docvault_token', token);
-      localStorage.setItem('docvault_user', JSON.stringify(mockUser));
-      
-      setUser(mockUser);
       return { success: true };
     } catch (error) {
-      return { success: false, error: error.message };
+      return { 
+        success: false, 
+        error: error.message || 'Login failed. Please check your credentials.' 
+      };
     } finally {
       setIsLoading(false);
     }
@@ -71,48 +109,65 @@ export const AuthProvider = ({ children }) => {
   const register = async (name, email, password) => {
     setIsLoading(true);
     try {
-      // Mock API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const redirectUrl = `${window.location.origin}/`;
       
-      const mockUser = {
-        id: Date.now(),
-        email: email,
-        name: name,
-        role: USER_ROLES.USER,
-        avatar: null,
-        createdAt: new Date().toISOString()
-      };
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: redirectUrl,
+          data: {
+            name: name
+          }
+        }
+      });
 
-      const token = 'mock_jwt_token_' + Date.now();
+      if (error) throw error;
+
+      // Check if user already exists
+      if (data?.user && !data.session) {
+        return {
+          success: false,
+          error: 'An account with this email already exists. Please login instead.'
+        };
+      }
       
-      localStorage.setItem('docvault_token', token);
-      localStorage.setItem('docvault_user', JSON.stringify(mockUser));
-      
-      setUser(mockUser);
       return { success: true };
     } catch (error) {
-      return { success: false, error: error.message };
+      return { 
+        success: false, 
+        error: error.message || 'Registration failed. Please try again.' 
+      };
     } finally {
       setIsLoading(false);
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('docvault_token');
-    localStorage.removeItem('docvault_user');
-    setUser(null);
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+      setSession(null);
+      setProfile(null);
+      setUserRoles([]);
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
   };
 
   const isAdmin = () => {
-    return user && user.role === USER_ROLES.ADMIN;
+    return userRoles.includes(USER_ROLES.ADMIN);
   };
 
   const isAuthenticated = () => {
-    return !!user;
+    return !!user && !!session;
   };
 
   const value = {
     user,
+    session,
+    profile,
+    userRoles,
     isLoading,
     login,
     register,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import GlassCard from '../components/GlassCard';
@@ -14,9 +14,16 @@ const Register = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({});
 
-  const { register } = useAuth();
+  const { register, isAuthenticated, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { showToast } = useToast();
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!authLoading && isAuthenticated()) {
+      navigate('/dashboard');
+    }
+  }, [authLoading, isAuthenticated, navigate]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;

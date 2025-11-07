@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const Navbar = () => {
-  const { user, logout, isAdmin } = useAuth();
+  const { profile, logout, isAdmin } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -40,7 +40,7 @@ const Navbar = () => {
           </Link>
 
           {/* Desktop Navigation */}
-          {user && (
+          {profile && (
             <div className="flex align-center" style={{ display: window.innerWidth > 768 ? 'flex' : 'none' }}>
               {navLinks.map((link) => (
                 <Link
@@ -69,11 +69,11 @@ const Navbar = () => {
 
           {/* User Menu */}
           <div className="flex align-center">
-            {user ? (
+            {profile ? (
               <div className="flex align-center">
                 <div className="glass-card" style={{ padding: '8px 12px', marginRight: '12px' }}>
                   <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: '500' }}>
-                    {user.name}
+                    {profile.name || profile.email}
                   </span>
                 </div>
                 <button onClick={handleLogout} className="btn-secondary">
@@ -92,7 +92,7 @@ const Navbar = () => {
             )}
 
             {/* Mobile Menu Button */}
-            {user && (
+            {profile && (
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 className="btn-glass"
@@ -109,7 +109,7 @@ const Navbar = () => {
         </div>
 
         {/* Mobile Menu */}
-        {user && isMobileMenuOpen && (
+        {profile && isMobileMenuOpen && (
           <div className="glass-card" style={{ 
             position: 'absolute',
             top: '70px',

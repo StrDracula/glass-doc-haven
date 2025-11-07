@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import GlassCard from '../components/GlassCard';
@@ -12,12 +12,19 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({});
 
-  const { login } = useAuth();
+  const { login, isAuthenticated, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { showToast } = useToast();
 
   const from = location.state?.from?.pathname || '/dashboard';
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!authLoading && isAuthenticated()) {
+      navigate('/dashboard');
+    }
+  }, [authLoading, isAuthenticated, navigate]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -74,10 +81,7 @@ const Login = () => {
     }
   };
 
-  const demoCredentials = [
-    { email: 'admin@docvault.com', password: 'admin123', role: 'Admin' },
-    { email: 'user@docvault.com', password: 'user123', role: 'User' }
-  ];
+  const demoNote = "Create a new account to get started, or test with any email/password (auto-confirm is enabled).";
 
   return (
     <div className="min-h-screen flex align-center justify-center" style={{
@@ -130,7 +134,7 @@ const Login = () => {
               Sign in to access your secure document vault and manage your family's important files.
             </p>
 
-            {/* Demo Credentials */}
+            {/* Info Note */}
             <GlassCard style={{ padding: '20px' }}>
               <h3 style={{ 
                 fontSize: '16px', 
@@ -138,22 +142,16 @@ const Login = () => {
                 color: '#1E3A8A', 
                 marginBottom: '12px' 
               }}>
-                Demo Credentials
+                🔐 Secure Authentication
               </h3>
-              {demoCredentials.map((cred, index) => (
-                <div key={index} style={{ 
-                  marginBottom: '8px', 
-                  fontSize: '14px',
-                  padding: '8px',
-                  background: 'rgba(30, 58, 138, 0.05)',
-                  borderRadius: '6px'
-                }}>
-                  <div style={{ fontWeight: '500', color: '#1E3A8A' }}>{cred.role}:</div>
-                  <div style={{ color: '#6B7280' }}>
-                    {cred.email} / {cred.password}
-                  </div>
-                </div>
-              ))}
+              <p style={{ 
+                fontSize: '14px',
+                color: '#6B7280',
+                lineHeight: '1.6',
+                margin: 0
+              }}>
+                {demoNote}
+              </p>
             </GlassCard>
           </div>
 
